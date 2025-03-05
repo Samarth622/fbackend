@@ -106,7 +106,7 @@ const getProfile = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ user });
+    res.status(200).json({ "User": user });
   } catch (error) {
     console.error("Error fetching profile:", error);
     res.status(500).json({ message: "Server error", error: error.message });
@@ -118,6 +118,15 @@ const updateProfile = async (req, res) => {
     const user = await User.findByPk(req.user.uid);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    if(req.mobile){
+      const user = await User.findOne({ 
+        where: { mobile: req.mobile }
+      })
+
+      if(user){
+        res.status(401).json({ message: "User already exists with this mobile number." })
+      }
+    }
 
     Object.keys(req.body).forEach((key) => {
       if (req.body[key] !== undefined) {

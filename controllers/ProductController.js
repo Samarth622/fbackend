@@ -6,7 +6,7 @@ import axios from "axios";
 
 const categoryProduct = async (req, res) => {
     try {
-        const { categoryName } = req.params;
+        const { categoryName } = req.query;
 
         const products = await Product.findAll({
             where: { category: categoryName }
@@ -16,7 +16,7 @@ const categoryProduct = async (req, res) => {
             return res.status(404).json({ message: "No products found in this category" });
         }
 
-        res.status(200).json(products);
+        res.status(200).json({products});
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -26,7 +26,7 @@ const categoryProduct = async (req, res) => {
 const productAnalysis = async (req, res) => {
     try {
 
-        const { productName } = req.params;
+        const { productName } = req.query;
         const product = await Product.findOne({
             where: { name: productName },
             attributes: { exclude: ['createdAt', 'updatedAt'] }
@@ -47,7 +47,7 @@ const productAnalysis = async (req, res) => {
             res.status(401).json({ message: "Some problem comes from ai model to generate response." });
         }
 
-        res.status(200).json(response);
+        res.status(200).json({ "analysis" :response, "productImage": product.image_url});
 
     } catch (error) {
         console.log("Error while analysis: ", error);
@@ -72,28 +72,28 @@ const imageAnalysis = async (req, res) => {
             contentType: req.file.mimetype,
         });
 
-        const response = await axios.post('http://localhost:5001/extract-text', formData, {
-            headers: {
-                ...formData.getHeaders(),
-            },
+        const response = await axios.post('http://localhost:5000/extract-text', formData, {
+            headers: formData.getHeaders(),
         });
 
         if (!response.data || !response.data.extracted_text) {
             res.status(400).json({ message: 'No text detected in the image' });
         }
 
-        const user = await User.findByPk(req.user.uid, {
-            attributes: { exclude: ['createdAt', 'updatedAt'] }
-        });
+        console.log(response.data.extracted_text)
+
+        const user = await User.findByPk(req.user.uid);
         if (!user) return res.status(404).json({ message: "User not found" });
 
         const analysis = await PhotoAna(user, response.data.extracted_text);
+
+        console.log(analysis)
 
         if(!analysis){
             res.status(400).json({ message: "Some problem comes while analysis." });
         }
 
-        res.status(200).json(analysis);
+        res.status(200).json({ "analysis": analysis });
 
     } catch (error) {
         console.log("Some error comes while analyse photo analysis: ", error);

@@ -122,9 +122,7 @@ export const PhotoAna = async (user, productText) => {
         "gender": ${user.gender},
         "allergies": ${user.allergies},
         "medical_history": ${user.medicalHistory},
-        "blood_group": ${user.bloodGroup},
-        "menstrual_cycle": np ("regular" or "irregular" - only include if gender is "female"),
-        "pregnancy_status": no ("pregnant", "not pregnant", "unsure" - only include if gender is "female")
+        "blood_group": ${user.bloodGroup}
     }
     
 
@@ -179,7 +177,7 @@ json
 
     const match = result.response.text().match(/```json\n([\s\S]*?)\n```/);
     const jsonData = JSON.parse(match[1]);
-    return jsonData
+    return jsonData;
 }
 
 

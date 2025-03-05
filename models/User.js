@@ -36,27 +36,36 @@ const User = db.define('users', {
   height: {
     type: DataTypes.INTEGER,
     allowNull: true,
+    defaultValue: 0,
   },
   weight: {
     type: DataTypes.INTEGER,
     allowNull: true,
+    defaultValue: 0,
   },
   age: {
     type: DataTypes.INTEGER,
     allowNull: true,
+    defaultValue: 0,
   },
   allergies: {
     type: DataTypes.STRING,
     allowNull: true,
+    defaultValue: "",
   },
   medicalHistory: {
     type: DataTypes.STRING,
     allowNull: true,
+    defaultValue: "",
   },
   bloodGroup: {
     type: DataTypes.STRING,
     allowNull: true,
+    defaultValue: "",
   }
+},
+{
+  timestamps: false
 });
 
 

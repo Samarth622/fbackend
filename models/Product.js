@@ -28,6 +28,9 @@ const Product = db.define("products", {
     type: DataTypes.TEXT,
     allowNull: false,
   },
+},
+{
+  timestamps: false
 });
 
 export default Product;
