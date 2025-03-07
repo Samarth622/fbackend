@@ -1,7 +1,116 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import validator from "validator";
+import twilio from "twilio";
+
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+
+const otpStore = new Map();
+
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+const requestOTP = async (req, res) => {
+    try {
+        const { mobile } = req.body;
+
+        if (!mobile) {
+            return res.status(400).json({ message: "Mobile number is required" });
+        }
+
+        const [rows] = await pool.execute(
+            'SELECT * FROM users WHERE mobile_number = ?',
+            [mobile]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const otp = generateOTP();
+        otpStore.set(mobile, { otp, expires: Date.now() + 10 * 60 * 1000 });
+
+        await client.messages.create({
+            body: `Your OTP for password reset is: ${otp}`,
+            from: twilioPhone,
+            to: mobile
+        });
+
+        return res.status(200).json({ 
+            message: "OTP sent successfully",
+            mobileNumber
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+const verifyOTP = async (req, res) => {
+    try {
+        const { mobile, otp } = req.body;
+
+        if (!mobile || !otp) {
+            return res.status(400).json({ message: "Mobile number and OTP are required" });
+        }
+
+        const storedData = otpStore.get(mobile);
+        if (!storedData) {
+            return res.status(400).json({ message: "OTP not requested or expired" });
+        }
+
+        if (storedData.expires < Date.now()) {
+            otpStore.delete(mobile);
+            return res.status(400).json({ message: "OTP expired" });
+        }
+
+        if (storedData.otp !== otp) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        return res.status(200).json({ 
+            message: "OTP verified successfully",
+            mobile
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+const resetPassword = async (req, res) => {
+    try {
+        const { mobile, otp, newPassword } = req.body;
+
+        if (!mobile || !otp || !newPassword) {
+            return res.status(400).json({ message: "All fields are required" });
+        }
+
+        const storedData = otpStore.get(mobile);
+        if (!storedData || storedData.otp !== otp || storedData.expires < Date.now()) {
+            otpStore.delete(mobile);
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const [result] = await pool.execute(
+            'UPDATE users SET password = ? WHERE mobile_number = ?',
+            [hashedPassword, mobile]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(400).json({ message: "Failed to update password" });
+        }
+
+        otpStore.delete(mobile);
+        return res.status(200).json({ message: "Password reset successfully" });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
 
 const register = async (req, res) => {
   try {
@@ -118,16 +227,7 @@ const updateProfile = async (req, res) => {
     const user = await User.findByPk(req.user.uid);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if(req.mobile){
-      const user = await User.findOne({ 
-        where: { mobile: req.mobile }
-      })
-
-      if(user){
-        res.status(401).json({ message: "User already exists with this mobile number." })
-      }
-    }
-
+    
     Object.keys(req.body).forEach((key) => {
       if (req.body[key] !== undefined) {
         user[key] = req.body[key];
@@ -152,4 +252,4 @@ const logout = async (req, res) => {
   }
 };
 
-export { register, login, getProfile, updateProfile, logout };
+export { register, login, getProfile, updateProfile, logout, requestOTP, resetPassword, verifyOTP };

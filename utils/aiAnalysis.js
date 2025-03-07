@@ -2,7 +2,7 @@ import {
     GoogleGenerativeAI
 } from "@google/generative-ai";
 
-const apiKey = "AIzaSyDw5bMsoN-7sV1qBPsqX5pcFVYPbn6Ahek";
+const apiKey = "AIzaSyCDGobzYQWVmZIftRWG3Q5BNULNsVv4AfM";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const model = genAI.getGenerativeModel({
@@ -10,10 +10,10 @@ const model = genAI.getGenerativeModel({
 });
 
 const generationConfig = {
-    temperature: 1.5,
-    topP: 0.98,
-    topK: 44,
-    maxOutputTokens: 8392,
+    temperature: 1,
+    topP: 0.95,
+    topK: 40,
+    maxOutputTokens: 8192,
     responseMimeType: "text/plain",
 };
 
@@ -25,7 +25,7 @@ export const GeminiAna = async (user, product) => {
     });
 
     const result = await chatSession.sendMessage(
-        `You are a health and nutrition expert tasked with analyzing a product's suitability for a specific user based on their health profile. You will receive user details and product details in JSON format. Your output should be a JSON object containing a nutrient-by-nutrient analysis with their rating(1 to 10) and explanation, an overall suitability rating(1 to 5) with overall conclusion, and suggestions for alternative 4 natural products.
+        `You are a health and nutrition expert tasked with analyzing a product's suitability for a specific user based on their health profile. Your response must be strictly in JSON format without any additional text outside of the JSON object.
 
 **Input Data:**
 
@@ -39,8 +39,6 @@ export const GeminiAna = async (user, product) => {
         "allergies": ${user.allergies},
         "medical_history": ${user.medicalHistory},
         "blood_group": ${user.bloodGroup},
-        "menstrual_cycle": np ("regular" or "irregular" - only include if gender is "female"),
-        "pregnancy_status": no ("pregnant", "not pregnant", "unsure" - only include if gender is "female")
     }
     
 
@@ -54,50 +52,74 @@ export const GeminiAna = async (user, product) => {
     }
     
 
-**Output Format (JSON):**
+**Output Format (JSON):*
 
 json
 {
     "nutrient_analysis": [
         {
-            "nutrient": STRING (e.g., "Protein"),
+            "nutrient_en": STRING,
+            "nutrient_hi": STRING,
             "rating": INTEGER (1-10),
-            "explanation": STRING (1-2 sentence explanation of the rating in relation to the user's profile)
-        },
-        {
-            "nutrient": STRING (e.g., "Sugar"),
-            "rating": INTEGER (1-10),
-            "explanation": STRING (1-2 sentence explanation of the rating in relation to the user's profile)
-        },
-        // ... more nutrients ...
+            "explanation_en": "STRING(Includes exact numeric values, overdose risks, and medical condition impact)",
+            "explanation_hi": "STRING(Includes exact numeric values, overdose risks, and medical condition impact)"
+        }
     ],
     "overall_analysis": {
-        "rating": INTEGER (1-5),
-        "explanation": STRING (Overall summary of how suitable the product is for the user, considering all factors)
+        "rating": INTEGER (1-10),
+        "explanation_en": "STRING(Detailed medical-based reasoning considering allergies, overdose risks, and medical conditions)",
+        "explanation_hi": "STRING(Detailed medical-based reasoning considering allergies, overdose risks, and medical conditions)"
     },
     "suggested_alternatives": [
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         }
     ]
-}`
+}
+    
+    **Response Generation Rules**
+    1. Nutrient Ratings (1-10 Scale)
+        1.1 1-3 → Harmful (Directly worsens medical conditions, allergies, or poses toxicity risks).
+        1.2 4-6 → Moderate Risk (Not ideal but can be consumed in small amounts).
+        1.3 7-10 → Beneficial (Supports deficiencies, prevents health risks, and provides optimal nutrition).
+            ✅ Includes exact numeric values for each nutrient in the explanation.
+            ✅ Identifies if a nutrient is excessive or deficient based on medical conditions.
+
+    2. Overall Suitability Rating (1-10 Scale)
+        2.1 1.0 - 2.5 → Avoid (Highly unsuitable due to medical/allergy risks).
+        2.2 2.6 - 5.0 → Risky (Can be consumed in rare cases but not recommended).
+        2.3 5.1 - 7.5 → Moderate (Can be consumed with caution, but alternatives are better).
+        2.4 7.6 - 10.0 → Safe (Healthy, beneficial, and aligns with the user’s profile).
+            ✅ Prioritizes allergies and medical conditions equally.
+            ✅ Explains why the product is rated that way.
+
+    3. Alternative Selection Criteria
+        3.1 Strictly natural (no processed foods).
+        3.2 Avoids allergy-triggering ingredients.
+        3.3 Addresses medical conditions.
+        3.4  Matches taste and texture of the original product where possible.`
     );
 
     const match = result.response.text().match(/```json\n([\s\S]*?)\n```/);
     const jsonData = JSON.parse(match[1]);
+    console.log(jsonData);
     return jsonData
 }
 
@@ -109,7 +131,7 @@ export const PhotoAna = async (user, productText) => {
     });
 
     const result = await chatSession.sendMessage(
-        `You are a health and nutrition expert tasked with analyzing a product's suitability for a specific user based on their health profile. You will receive user details and product details in JSON format. Your output should be a JSON object containing a nutrient-by-nutrient analysis with their rating(1 to 10) and explanation, an overall suitability rating(1 to 5) with overall conclusion, and suggestions for alternative 4 natural products.
+        `You are a health and nutrition expert tasked with analyzing a product's suitability for a specific user based on their health profile. Your response must be strictly in JSON format without any additional text outside of the JSON object.
 
 **Input Data:**
 
@@ -122,7 +144,7 @@ export const PhotoAna = async (user, productText) => {
         "gender": ${user.gender},
         "allergies": ${user.allergies},
         "medical_history": ${user.medicalHistory},
-        "blood_group": ${user.bloodGroup}
+        "blood_group": ${user.bloodGroup},
     }
     
 
@@ -139,40 +161,63 @@ json
 {
     "nutrient_analysis": [
         {
-            "nutrient": STRING (e.g., "Protein"),
+            "nutrient_en": STRING,
+            "nutrient_hi": STRING,
             "rating": INTEGER (1-10),
-            "explanation": STRING (1-2 sentence explanation of the rating in relation to the user's profile)
-        },
-        {
-            "nutrient": STRING (e.g., "Sugar"),
-            "rating": INTEGER (1-10),
-            "explanation": STRING (1-2 sentence explanation of the rating in relation to the user's profile)
-        },
-        // ... more nutrients ...
+            "explanation_en": "STRING(Includes exact numeric values, overdose risks, and medical condition impact)",
+            "explanation_hi": "STRING(Includes exact numeric values, overdose risks, and medical condition impact)"
+        }
     ],
     "overall_analysis": {
-        "rating": INTEGER (1-5),
-        "explanation": STRING (Overall summary of how suitable the product is for the user, considering all factors)
+        "rating": INTEGER (1-10),
+        "explanation_en": "STRING(Detailed medical-based reasoning considering allergies, overdose risks, and medical conditions)",
+        "explanation_hi": "STRING(Detailed medical-based reasoning considering allergies, overdose risks, and medical conditions)"
     },
     "suggested_alternatives": [
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         },
         {
             "name": STRING,
-            "reason": STRING (1-2 sentence explanation of why this alternative is beneficial for the user)
+            "reason_en": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)",
+            "reason_hi": "STRING(Strictly natural, better for the user's health, and similar in taste/texture if relevant)"
         }
     ]
-}`
+}
+    
+    **Response Generation Rules**
+    1. Nutrient Ratings (1-10 Scale)
+        1.1 1-3 → Harmful (Directly worsens medical conditions, allergies, or poses toxicity risks).
+        1.2 4-6 → Moderate Risk (Not ideal but can be consumed in small amounts).
+        1.3 7-10 → Beneficial (Supports deficiencies, prevents health risks, and provides optimal nutrition).
+            ✅ Includes exact numeric values for each nutrient in the explanation.
+            ✅ Identifies if a nutrient is excessive or deficient based on medical conditions.
+
+    2. Overall Suitability Rating (1-10 Scale)
+        2.1 1.0 - 2.5 → Avoid (Highly unsuitable due to medical/allergy risks).
+        2.2 2.6 - 5.0 → Risky (Can be consumed in rare cases but not recommended).
+        2.3 5.1 - 7.5 → Moderate (Can be consumed with caution, but alternatives are better).
+        2.4 7.6 - 10.0 → Safe (Healthy, beneficial, and aligns with the user’s profile).
+            ✅ Prioritizes allergies and medical conditions equally.
+            ✅ Explains why the product is rated that way.
+
+    3. Alternative Selection Criteria
+        3.1 Strictly natural (no processed foods).
+        3.2 Avoids allergy-triggering ingredients.
+        3.3 Addresses medical conditions.
+        3.4  Matches taste and texture of the original product where possible.`
     );
 
     const match = result.response.text().match(/```json\n([\s\S]*?)\n```/);
@@ -215,88 +260,178 @@ export const SuggestFood = async (user) => {
               "structure": {
                 "foodRecommendations": [
                   {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": {
                       "type": "string",
-                      "description": "The name of the recommended food product (e.g., 'Spinach', 'Almonds', 'Salmon')."
+                      "description": "The name of the recommended food product (e.g., 'Spinach', 'Almonds', 'Salmon').",
                     },
                     "benefits": {
                       "type": "string",
                       "description": "A detailed description of the health benefits of this food, specifically tailored to the user's profile.  Explain how it helps with their medical history, addresses potential deficiencies, or avoids allergens (e.g., 'Rich in iron, helping to combat potential anemia.  Also, dairy-free, avoiding allergic reactions.')."
                     },
+                    "category_en": STRING,
+                    "category_hi": STRING,
                     "category": {
                       "type": "string",
                       "description": "The category of the food (e.g., 'Vegetables', 'Fruits', 'Nuts and Seeds', 'Protein', 'Grains', 'Legumes')."
                     },
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                   {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                   {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   },
                    {
+                    "productName_en": STRING,
+                    "productName_hi": STRING,
                     "productName": "...",
                     "benefits": "...",
                     "category": "...",
+                    "category_en": STRING,
+                    "category_hi": STRING,
+                    "benefits_en": STRING,
+                    "benefits_hi": STRING,
                   }
           
                 ]
